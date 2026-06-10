@@ -16,9 +16,22 @@ else
     sudo apt-get update -y --fix-missing && sudo apt-get install wireguard-tools jq wget qrencode -y --fix-missing
 fi
 
-priv="${1:-$(wg genkey | tr -d '\n')}"
-pub="${2:-$(printf "%s" "${priv}" | wg pubkey | tr -d '\n')}"
-api="https://api.cloudflareclient.com/v0i1909051800"
+count="${1:-}"
+if [ -z "$count" ]; then
+  echo "Сколько конфигов сгенерировать? [1]"
+  read -r count
+fi
+
+count="${count:-1}"
+if ! [[ "$count" =~ ^[1-9][0-9]*$ ]]; then
+  echo "[ERROR] Введите целое число больше 0."
+  exit 1
+fi
+
+for config_index in $(seq 1 "$count"); do
+  priv="$(wg genkey | tr -d '\n')"
+  pub="$(printf "%s" "${priv}" | wg pubkey | tr -d '\n')"
+  api="https://api.cloudflareclient.com/v0i1909051800"
 ins() { curl -s -H 'User-Agent: okhttp/3.12.1' -H 'Content-Type: application/json' -X "$1" "${api}/$2" "${@:3}"; }
 sec() { ins "$1" "$2" -H "Authorization: Bearer $3" "${@:4}"; }
 response=$(ins POST "reg" -d "{\"install_id\":\"\",\"tos\":\"$(date -u +%FT%TZ)\",\"key\":\"${pub}\",\"fcm_token\":\"\",\"type\":\"ios\",\"locale\":\"en_US\"}")
@@ -115,8 +128,9 @@ echo "${conf}"
 [ -t 1 ] && echo "########### КОНЕЦ КОНФИГА ###########"
 
 echo -e "\n"
-conf_file="WARP.conf"
+conf_file="WARP${config_index}.conf"
 printf '%s\n' "${conf}" > "${conf_file}"
 echo "Конфиг сохранён локально: ${conf_file}"
 echo "Импортируйте конфиг в приложение AmneziaVPN! Приложение AmneziaWG не поддерживает этот формат!"
 echo -e "\n"
+done
